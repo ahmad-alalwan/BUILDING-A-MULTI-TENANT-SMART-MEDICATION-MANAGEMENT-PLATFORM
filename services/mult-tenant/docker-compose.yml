@@ -1,0 +1,89 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    volumes:
+      - .:/django
+    ports:
+      - "8001:8000"
+    image: app:mult_tenant
+    container_name:  mult_tenant
+    environment:
+     DJANGO_SECRET_KEY: ${********}
+     DEBUG: ${DEBUG:-True}  # Default value is "True" if not provided
+     DJANGO_LOGLEVEL: ${DJANGO_LOGLEVEL:-info}  # Default value is "info" if not provided
+     DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}  # Default value
+     DATABASE_ENGINE: ${DATABASE_ENGINE:-django_tenants.postgresql_backend}  # Default value
+     DATABASE_NAME: ${DATABASE_NAME:-mult_tenant}  # Default value
+     DATABASE_USERNAME: ${DATABASE_USERNAME:-postgres}  # Default value
+     DATABASE_PASSWORD: ${DATABASE_PASSWORD:-******}  # Default value
+     DATABASE_HOST: ${DATABASE_HOST:-db}  # Default value
+     DATABASE_PORT: ${DATABASE_PORT:-5432}
+    env_file:
+     - .env
+    command: python manage.py runserver 0.0.0.0:8000  
+    depends_on:
+      - db  
+    entrypoint: ["sh", "-c", "/usr/local/bin/wait-for-it.sh db:5432 -t 30 -- python manage.py migrate_schemas --shared && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+  
+  db:  
+    image: postgres:latest
+    mem_limit: 2g
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    environment:
+     DJANGO_SECRET_KEY: ${*******}
+     DEBUG: ${DEBUG:-True}  # Default value is "True" if not provided
+     DJANGO_LOGLEVEL: ${DJANGO_LOGLEVEL:-info}  # Default value is "info" if not provided
+     DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}  # Default value
+     DATABASE_ENGINE: ${DATABASE_ENGINE:-django_tenants.postgresql_backend}  # Default value
+     DATABASE_NAME: ${DATABASE_NAME:-mult_tenant}  # Default value
+     DATABASE_USERNAME: ${DATABASE_USERNAME:-postgres}  # Default value
+     DATABASE_PASSWORD: ${DATABASE_PASSWORD:-***}  # Default value
+     DATABASE_HOST: ${DATABASE_HOST:-db}  # Default value
+     DATABASE_PORT: ${DATABASE_PORT:-5432}
+    env_file:
+     - .env  
+    networks:
+      - app-network
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper 
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2182:2181"
+      - "2889:2888"
+      - "3889:3888"
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka2
+    restart: "no"
+    depends_on:
+      - zookeeper
+    ports:
+      - "9093:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    environment:
+      - DB_HOST=db
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge    

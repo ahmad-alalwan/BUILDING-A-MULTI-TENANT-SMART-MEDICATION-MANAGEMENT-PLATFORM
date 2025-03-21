@@ -1,0 +1,7 @@
+Django==5.0.6
+djangorestframework==3.14.0
+psycopg2-binary==2.9.8
+django-cors-headers
+django-tenants==3.7.0
+kafka-python==2.0.2
+django-debug-toolbar>=3.2
