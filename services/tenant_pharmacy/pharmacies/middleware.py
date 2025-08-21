@@ -9,4 +9,4 @@ class TenantMiddleware(MiddlewareMixin):
             tenant = TenantModel.objects.get(domain_url=hostname)
             request.tenant = tenant
         except TenantModel.DoesNotExist:
-            request.tenant = None   
+            request.tenant = None
