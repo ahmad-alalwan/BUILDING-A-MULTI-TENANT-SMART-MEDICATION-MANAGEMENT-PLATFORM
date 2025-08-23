@@ -174,4 +174,71 @@ TENANT_MODEL ='tenant.Client'
 TENANT_DOMAIN_MODEL ='tenant.Domain'
 PUBLIC_SCHEMA_URLCONF='tenant.urls'
 
+# Redis Cache Configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6379')}/{os.getenv('REDIS_DB', '0')}",
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'CONNECTION_POOL_KWARGS': {
+                'max_connections': 50,
+                'retry_on_timeout': True,
+            },
+            'SOCKET_CONNECT_TIMEOUT': 5,
+            'SOCKET_TIMEOUT': 5,
+            'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
+            'IGNORE_EXCEPTIONS': True,
+        },
+        'KEY_PREFIX': 'mult_tenant',
+        'TIMEOUT': 300,  # 5 minutes default timeout
+    },
+    'session': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6379')}/{os.getenv('REDIS_DB', '1')}",
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'session',
+        'TIMEOUT': 86400,  # 24 hours for sessions
+    },
+    'api': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6379')}/{os.getenv('REDIS_DB', '2')}",
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'api',
+        'TIMEOUT': 600,  # 10 minutes for API responses
+    }
+}
+
+# Session Configuration
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'session'
+
+# Cache Configuration for different use cases
+CACHE_MIDDLEWARE_SECONDS = 300
+CACHE_MIDDLEWARE_KEY_PREFIX = 'mult_tenant'
+CACHE_MIDDLEWARE_ALIAS = 'default'
+
+# Cacheops Configuration for automatic query caching
+CACHEOPS_REDIS = {
+    'host': os.getenv('REDIS_HOST', 'redis'),
+    'port': int(os.getenv('REDIS_PORT', '6379')),
+    'db': int(os.getenv('REDIS_DB', '3')),
+    'socket_timeout': 3,
+}
+
+CACHEOPS_DEFAULTS = {
+    'timeout': 60 * 15,  # 15 minutes
+}
+
+# Cache specific models
+CACHEOPS = {
+    'tenant.Client': {'ops': 'all', 'timeout': 60 * 60},  # 1 hour
+    'tenant.Domain': {'ops': 'all', 'timeout': 60 * 60},  # 1 hour
+    'auth.User': {'ops': 'all', 'timeout': 60 * 30},      # 30 minutes
+}
+
 

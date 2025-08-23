@@ -10,22 +10,28 @@ services:
     image: app:mult_tenant
     container_name:  mult_tenant
     environment:
-     DJANGO_SECRET_KEY: ${********}
+     DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-django-secret-key-change-in-production}
      DEBUG: ${DEBUG:-True}  # Default value is "True" if not provided
      DJANGO_LOGLEVEL: ${DJANGO_LOGLEVEL:-info}  # Default value is "info" if not provided
      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}  # Default value
      DATABASE_ENGINE: ${DATABASE_ENGINE:-django_tenants.postgresql_backend}  # Default value
      DATABASE_NAME: ${DATABASE_NAME:-mult_tenant}  # Default value
      DATABASE_USERNAME: ${DATABASE_USERNAME:-postgres}  # Default value
-     DATABASE_PASSWORD: ${DATABASE_PASSWORD:-******}  # Default value
+     DATABASE_PASSWORD: ${DATABASE_PASSWORD:-postgres}  # Default value
      DATABASE_HOST: ${DATABASE_HOST:-db}  # Default value
      DATABASE_PORT: ${DATABASE_PORT:-5432}
+     REDIS_HOST: ${REDIS_HOST:-redis}
+     REDIS_PORT: ${REDIS_PORT:-6379}
+     REDIS_DB: ${REDIS_DB:-0}
     env_file:
      - .env
     command: python manage.py runserver 0.0.0.0:8000  
     depends_on:
-      - db  
-    entrypoint: ["sh", "-c", "/usr/local/bin/wait-for-it.sh db:5432 -t 30 -- python manage.py migrate_schemas --shared && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+      - db
+      - redis
+    entrypoint: ["sh", "-c", "/usr/local/bin/wait-for-it.sh db:5432 -t 30 -- /usr/local/bin/wait-for-it.sh redis:6379 -t 30 -- python manage.py migrate_schemas --shared && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+    networks:
+      - app-network
   
   db:  
     image: postgres:latest
@@ -33,20 +39,34 @@ services:
     volumes:
       - ./data/db:/var/lib/postgresql/data
     environment:
-     DJANGO_SECRET_KEY: ${*******}
+     DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-django-secret-key-change-in-production}
      DEBUG: ${DEBUG:-True}  # Default value is "True" if not provided
      DJANGO_LOGLEVEL: ${DJANGO_LOGLEVEL:-info}  # Default value is "info" if not provided
      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}  # Default value
      DATABASE_ENGINE: ${DATABASE_ENGINE:-django_tenants.postgresql_backend}  # Default value
      DATABASE_NAME: ${DATABASE_NAME:-mult_tenant}  # Default value
      DATABASE_USERNAME: ${DATABASE_USERNAME:-postgres}  # Default value
-     DATABASE_PASSWORD: ${DATABASE_PASSWORD:-***}  # Default value
+     DATABASE_PASSWORD: ${DATABASE_PASSWORD:-postgres}  # Default value
      DATABASE_HOST: ${DATABASE_HOST:-db}  # Default value
      DATABASE_PORT: ${DATABASE_PORT:-5432}
     env_file:
      - .env  
     networks:
       - app-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis_mult_tenant
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - app-network
+    restart: unless-stopped
+
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     container_name: zookeeper 
@@ -87,3 +107,6 @@ services:
 networks:
   app-network:
     driver: bridge    
+
+volumes:
+  redis_data: 

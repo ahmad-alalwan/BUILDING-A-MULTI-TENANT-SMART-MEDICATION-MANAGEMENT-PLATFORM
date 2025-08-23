@@ -126,3 +126,80 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Redis Cache Configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6380')}/{os.getenv('REDIS_DB', '0')}",
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'CONNECTION_POOL_KWARGS': {
+                'max_connections': 50,
+                'retry_on_timeout': True,
+            },
+            'SOCKET_CONNECT_TIMEOUT': 5,
+            'SOCKET_TIMEOUT': 5,
+            'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
+            'IGNORE_EXCEPTIONS': True,
+        },
+        'KEY_PREFIX': 'pharmacy',
+        'TIMEOUT': 300,  # 5 minutes default timeout
+    },
+    'session': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6380')}/{os.getenv('REDIS_DB', '1')}",
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'session',
+        'TIMEOUT': 86400,  # 24 hours for sessions
+    },
+    'api': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6380')}/{os.getenv('REDIS_DB', '2')}",
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'api',
+        'TIMEOUT': 600,  # 10 minutes for API responses
+    },
+    'inventory': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6380')}/{os.getenv('REDIS_DB', '3')}",
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'inventory',
+        'TIMEOUT': 1800,  # 30 minutes for inventory data
+    }
+}
+
+# Session Configuration
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'session'
+
+# Cache Configuration for different use cases
+CACHE_MIDDLEWARE_SECONDS = 300
+CACHE_MIDDLEWARE_KEY_PREFIX = 'pharmacy'
+CACHE_MIDDLEWARE_ALIAS = 'default'
+
+# Cacheops Configuration for automatic query caching
+CACHEOPS_REDIS = {
+    'host': os.getenv('REDIS_HOST', 'redis'),
+    'port': int(os.getenv('REDIS_PORT', '6380')),
+    'db': int(os.getenv('REDIS_DB', '4')),
+    'socket_timeout': 3,
+}
+
+CACHEOPS_DEFAULTS = {
+    'timeout': 60 * 15,  # 15 minutes
+}
+
+# Cache specific models
+CACHEOPS = {
+    'pharmacies.Pharmacy': {'ops': 'all', 'timeout': 60 * 30},      # 30 minutes
+    'pharmacies.Medication': {'ops': 'all', 'timeout': 60 * 15},    # 15 minutes
+    'pharmacies.Inventory': {'ops': 'all', 'timeout': 60 * 10},     # 10 minutes
+    'auth.User': {'ops': 'all', 'timeout': 60 * 30},               # 30 minutes
+}
